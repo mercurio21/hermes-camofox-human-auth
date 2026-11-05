@@ -15,25 +15,46 @@ from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 
+def _env(name: str, default: str = "") -> str:
+    """Read a plugin config env var honouring the per-profile secret scope.
+
+    Plain os.getenv() hands back whatever the PROCESS environment holds —
+    under a multiplexed gateway (several profiles sharing one Hermes
+    process) that is some arbitrary profile's value, not necessarily this
+    one's, because dotenv values get merged into the single process env at
+    load time per-profile-turn, not per-profile-forever. get_secret()
+    already resolves this correctly for every case (global vars, bound
+    scope, multiplex on/off) — see agent/secret_scope.py. Falls back to
+    raw os.getenv only if the module itself cannot be imported at all
+    (shouldn't happen inside a running Hermes, kept defensive for CLI/
+    standalone script contexts)."""
+    try:
+        from agent.secret_scope import get_secret
+        value = get_secret(name, default)
+        return (value or "").strip() if value is not None else default
+    except Exception:
+        return os.getenv(name, default).strip()
+
+
 def _backend() -> str:
-    return os.getenv("CAMOFOX_HUMAN_AUTH_BACKEND", "native").strip().lower() or "native"
+    return _env("CAMOFOX_HUMAN_AUTH_BACKEND", "native").lower() or "native"
 
 
 def _profile_dir() -> str:
-    configured = os.getenv("CAMOFOX_PROFILE_DIR", "").strip()
+    configured = _env("CAMOFOX_PROFILE_DIR", "")
     return configured or str(Path(__file__).parent / "data" / "profiles")
 
 
 def _session_defaults() -> tuple[str, str]:
     return (
-        os.getenv("CAMOFOX_HUMAN_AUTH_USER_ID", "hermes").strip() or "hermes",
-        os.getenv("CAMOFOX_HUMAN_AUTH_SESSION_KEY", "native-auth").strip() or "native-auth",
+        _env("CAMOFOX_HUMAN_AUTH_USER_ID", "hermes") or "hermes",
+        _env("CAMOFOX_HUMAN_AUTH_SESSION_KEY", "native-auth") or "native-auth",
     )
 
 
 def _base_url() -> str:
     default = "http://127.0.0.1:9378" if _backend() == "docker" else "http://127.0.0.1:9377"
-    return os.getenv("CAMOFOX_HUMAN_AUTH_URL", default).rstrip("/")
+    return _env("CAMOFOX_HUMAN_AUTH_URL", default).rstrip("/")
 
 
 def _novnc_url() -> str:
@@ -43,14 +64,14 @@ def _novnc_url() -> str:
     # camofox-browser container's own VNC_PASSWORD env var was given, not a
     # separate secret. Works for BOTH the explicit CAMOFOX_NOVNC_PUBLIC_URL
     # override and the auto-derived host:port fallback below.
-    explicit = os.getenv("CAMOFOX_NOVNC_PUBLIC_URL", "").strip()
-    password = os.getenv("CAMOFOX_NOVNC_PASSWORD", "").strip()
+    explicit = _env("CAMOFOX_NOVNC_PUBLIC_URL", "")
+    password = _env("CAMOFOX_NOVNC_PASSWORD", "")
     query = f"?password={password}&autoconnect=true" if password else ""
     if explicit:
         return explicit.rstrip("/") + "/vnc.html" + query
     parsed = urlsplit(_base_url())
     host = parsed.hostname or "127.0.0.1"
-    port = os.getenv("CAMOFOX_NOVNC_PORT", "6089")
+    port = _env("CAMOFOX_NOVNC_PORT", "6089")
     return urlunsplit((parsed.scheme or "http", f"{host}:{port}", "/vnc.html", query.lstrip("?"), ""))
 
 
@@ -60,7 +81,7 @@ def _request(path: str, payload: dict | None = None, timeout: float = 60) -> dic
     if payload is not None:
         body = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    admin_key = os.getenv("CAMOFOX_HUMAN_AUTH_ADMIN_KEY", "").strip()
+    admin_key = _env("CAMOFOX_HUMAN_AUTH_ADMIN_KEY", "")
     if admin_key:
         headers["x-admin-key"] = admin_key
     request = Request(_base_url() + path, data=body, headers=headers, method="POST" if body else "GET")
