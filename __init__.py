@@ -210,7 +210,7 @@ def register(ctx) -> None:
 
     ctx.register_tool(
         name="camofox_backend_status",
-        toolset="browser",
+        toolset="camofox",
         schema={"name": "camofox_backend_status", "description": "Check the configured Camofox backend and health.", "parameters": {"type": "object", "properties": {}, "additionalProperties": False}},
         handler=_status,
         check_fn=lambda: True,
@@ -219,7 +219,7 @@ def register(ctx) -> None:
     )
     ctx.register_tool(
         name="camofox_auth_open",
-        toolset="browser",
+        toolset="camofox",
         schema={"name": "camofox_auth_open", "description": "Open the existing user-controlled Camofox auth surface using the configured persistent profile. Use for any login, registration, SSO, MFA, OTP, CAPTCHA, or device-confirmation flow. Reuse the same user_id=hermes and session_key=native-auth; never pass secrets and never create a new profile.", "parameters": {"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
         handler=_auth_open,
         check_fn=lambda: True,
@@ -228,7 +228,7 @@ def register(ctx) -> None:
     )
     ctx.register_tool(
         name="camofox_auth_finish",
-        toolset="browser",
+        toolset="camofox",
         schema={"name": "camofox_auth_finish", "description": "Finish the existing user-controlled authentication handoff using exactly the same persistent profile, user_id, and session_key returned by camofox_auth_open. Do not accept passwords or OTP values and do not open a new tab/profile.", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
         handler=_auth_finish,
         check_fn=lambda: True,
