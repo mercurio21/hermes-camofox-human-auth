@@ -37,13 +37,21 @@ def _base_url() -> str:
 
 
 def _novnc_url() -> str:
+    # CAMOFOX_NOVNC_PASSWORD (optional): when set, appended as
+    # ?password=...&autoconnect=true so the handoff link opens straight
+    # into the session without the noVNC connect form — same password the
+    # camofox-browser container's own VNC_PASSWORD env var was given, not a
+    # separate secret. Works for BOTH the explicit CAMOFOX_NOVNC_PUBLIC_URL
+    # override and the auto-derived host:port fallback below.
     explicit = os.getenv("CAMOFOX_NOVNC_PUBLIC_URL", "").strip()
+    password = os.getenv("CAMOFOX_NOVNC_PASSWORD", "").strip()
+    query = f"?password={password}&autoconnect=true" if password else ""
     if explicit:
-        return explicit.rstrip("/") + "/vnc.html"
+        return explicit.rstrip("/") + "/vnc.html" + query
     parsed = urlsplit(_base_url())
     host = parsed.hostname or "127.0.0.1"
     port = os.getenv("CAMOFOX_NOVNC_PORT", "6089")
-    return urlunsplit((parsed.scheme or "http", f"{host}:{port}", "/vnc.html", "", ""))
+    return urlunsplit((parsed.scheme or "http", f"{host}:{port}", "/vnc.html", query.lstrip("?"), ""))
 
 
 def _request(path: str, payload: dict | None = None, timeout: float = 60) -> dict:
