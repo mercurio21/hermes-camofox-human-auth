@@ -53,8 +53,12 @@ def _session_defaults() -> tuple[str, str]:
 
 
 def _base_url() -> str:
+    # CAMOFOX_URL is the existing camofox browser-toolset's own REST URL env var;
+    # reuse it as a fallback so profiles that already set it (e.g. child Docker
+    # installs) don't need a second, duplicate variable for this plugin.
     default = "http://127.0.0.1:9378" if _backend() == "docker" else "http://127.0.0.1:9377"
-    return _env("CAMOFOX_HUMAN_AUTH_URL", default).rstrip("/")
+    fallback = _env("CAMOFOX_URL", default)
+    return _env("CAMOFOX_HUMAN_AUTH_URL", fallback).rstrip("/")
 
 
 def _novnc_url() -> str:
